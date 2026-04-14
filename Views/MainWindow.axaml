@@ -1,0 +1,343 @@
+<Window
+    x:Class="RawV.Views.MainWindow"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:RawV.ViewModels"
+    Width="1280"
+    Height="820"
+    MinWidth="960"
+    MinHeight="640"
+    Background="Transparent"
+    Icon="/Assets/RawVLogo.png"
+    KeyDown="OnWindowKeyDown"
+    mc:Ignorable="d"
+    Title="RawV">
+
+  <Panel>
+    <!-- Acrylic background -->
+    <Panel.Background>
+      <SolidColorBrush Color="#F3F3F3" />
+    </Panel.Background>
+
+    <!-- Content Grid -->
+    <Grid RowDefinitions="Auto,*,Auto">
+
+      <!-- Top Command Bar - Compact WinUI style -->
+      <Border
+          Grid.Row="0"
+          Height="48"
+          Padding="12,0">
+        <Border.Background>
+          <SolidColorBrush Color="#FFFFFF" Opacity="0.8" />
+        </Border.Background>
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <!-- Left: Logo and title -->
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Image Source="/Assets/RawVLogo.png" Width="24" Height="24" />
+            <TextBlock
+                Text="RawV"
+                FontSize="14"
+                FontWeight="SemiBold"
+                VerticalAlignment="Center" />
+          </StackPanel>
+
+          <!-- Center: Navigation and actions -->
+          <StackPanel
+              Grid.Column="1"
+              Orientation="Horizontal"
+              HorizontalAlignment="Center"
+              Spacing="4">
+            <Button
+                Command="{Binding PreviousCommand}"
+                ToolTip.Tip="Previous (Left Arrow)"
+                Focusable="False">
+              <PathIcon Data="M15.41,7.41L14,6l-6,6l6,6l1.41,-1.41L10.83,12L15.41,7.41z" />
+            </Button>
+            <Button
+                Command="{Binding NextCommand}"
+                ToolTip.Tip="Next (Right Arrow)"
+                Focusable="False">
+              <PathIcon Data="M8.59,16.59L10,18l6,-6l-6,-6l-1.41,1.41L13.17,12L8.59,16.59z" />
+            </Button>
+            <Rectangle Width="1" Height="24" Fill="#20000000" Margin="8,0" />
+            <Button
+                Command="{Binding CloseSessionCommand}"
+                IsEnabled="{Binding CanClose}"
+                ToolTip.Tip="Close Current Folder"
+                Focusable="False">
+              <PathIcon Data="M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z" />
+            </Button>
+            <Rectangle Width="1" Height="24" Fill="#20000000" Margin="8,0" />
+            <Button
+                Classes="Delete"
+                Click="OnDeleteClick"
+                IsEnabled="{Binding CanDelete}"
+                ToolTip.Tip="Move to Recycle Bin (Delete)"
+                Focusable="False">
+              <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" />
+            </Button>
+          </StackPanel>
+
+          <!-- Right: Settings -->
+          <StackPanel
+              Grid.Column="2"
+              Orientation="Horizontal"
+              Spacing="8"
+              VerticalAlignment="Center">
+            <CheckBox
+                IsChecked="{Binding DeleteConfirmationEnabled}"
+                ToolTip.Tip="Delete Confirmation"
+                Focusable="False" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Main Image Area - Maximizes space for image -->
+      <Panel Grid.Row="1" Background="#E8E8E8">
+        <!-- Image Display -->
+        <Panel IsVisible="{Binding HasImage}" Margin="0">
+          <Image
+              Source="{Binding CurrentBitmap}"
+              Stretch="Uniform"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center" />
+        </Panel>
+
+        <!-- Loading State -->
+        <Panel IsVisible="{Binding IsBusy}">
+          <Panel.Background>
+            <SolidColorBrush Color="#E8E8E8" />
+          </Panel.Background>
+          <StackPanel
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Spacing="12">
+            <ProgressBar Width="200" IsIndeterminate="True" />
+            <TextBlock Text="Loading image..." Opacity="0.6" Foreground="#1A1A1A" />
+          </StackPanel>
+        </Panel>
+
+        <!-- Empty State -->
+        <Panel IsVisible="{Binding IsEmptyState}">
+          <StackPanel
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Spacing="16">
+            <Image Source="/Assets/RawVLogo.png" Width="80" Height="80" Opacity="0.3" />
+            <TextBlock
+                Text="RawV"
+                FontSize="28"
+                FontWeight="Light"
+                HorizontalAlignment="Center"
+                Opacity="0.4"
+                Foreground="#1A1A1A" />
+            <TextBlock
+                Text="Open images or folder to start browsing"
+                FontSize="14"
+                HorizontalAlignment="Center"
+                Opacity="0.5"
+                Foreground="#1A1A1A" />
+            <StackPanel
+                Orientation="Horizontal"
+                HorizontalAlignment="Center"
+                Spacing="12"
+                Margin="0,16,0,0">
+              <Button Click="OnOpenFilesClick" Classes="Accent" Focusable="False">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                  <TextBlock Text="Open Files" />
+                </StackPanel>
+              </Button>
+              <Button Click="OnOpenFolderClick" Focusable="False">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="M20,18H4V8H20M20,6H12L10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6Z" />
+                  <TextBlock Text="Open Folder" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </StackPanel>
+        </Panel>
+
+        <!-- Error State -->
+        <Panel IsVisible="{Binding HasError}">
+          <Border Background="#66000000" />
+          <Border
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              MaxWidth="540"
+              Margin="24"
+              Padding="24"
+              CornerRadius="16"
+              Background="#F7FBFF"
+              BorderBrush="#40FF6B6B"
+              BorderThickness="1">
+            <StackPanel Spacing="14">
+              <Border
+                  Width="56"
+                  Height="56"
+                  CornerRadius="28"
+                  Background="#1AFF6B6B"
+                  HorizontalAlignment="Center">
+                <PathIcon
+                    Data="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM13,17h-2v-2h2v2zM13,13h-2V7h2v6z"
+                    Width="28"
+                    Height="28"
+                    Foreground="#D64545"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+              </Border>
+              <TextBlock
+                  Text="Failed to Load Image"
+                  FontSize="20"
+                  FontWeight="SemiBold"
+                  HorizontalAlignment="Center"
+                  Foreground="#1A1A1A" />
+              <TextBlock
+                  Text="{Binding ErrorMessage}"
+                  TextWrapping="Wrap"
+                  TextAlignment="Center"
+                  LineHeight="22"
+                  Foreground="#4A4A4A" />
+            </StackPanel>
+          </Border>
+        </Panel>
+      </Panel>
+
+      <!-- Bottom Status Bar - Compact -->
+      <Border
+          Grid.Row="2"
+          Height="28"
+          Padding="12,0">
+        <Border.Background>
+          <SolidColorBrush Color="#FFFFFF" Opacity="0.8" />
+        </Border.Background>
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock
+              Grid.Column="0"
+              Text="{Binding CurrentFileName}"
+              VerticalAlignment="Center"
+              FontSize="12"
+              TextTrimming="CharacterEllipsis"
+              Opacity="0.9" />
+          <TextBlock
+              Grid.Column="1"
+              Text="{Binding CurrentStatus}"
+              VerticalAlignment="Center"
+              FontSize="12"
+              Margin="16,0,0,0"
+              Opacity="0.7" />
+        </Grid>
+      </Border>
+
+    </Grid>
+  </Panel>
+
+  <Window.Styles>
+    <!-- Base button style - WinUI compact -->
+    <Style Selector="Button">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="#20000000" />
+    </Style>
+
+    <Style Selector="Button:pressed">
+      <Setter Property="Background" Value="#30000000" />
+    </Style>
+
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.3" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- Accent button -->
+    <Style Selector="Button.Accent">
+      <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.Accent:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
+    </Style>
+
+    <!-- Delete button -->
+    <Style Selector="Button.Delete">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#FF6B6B" />
+    </Style>
+
+    <Style Selector="Button.Delete:pointerover">
+      <Setter Property="Background" Value="#50FF6B6B" />
+    </Style>
+
+    <Style Selector="Button.Delete:disabled">
+      <Setter Property="Opacity" Value="0.3" />
+    </Style>
+
+    <!-- ToggleButton base style -->
+    <Style Selector="ToggleButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Width" Value="32" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="ToggleButton:pointerover">
+      <Setter Property="Background" Value="#20000000" />
+    </Style>
+
+    <Style Selector="ToggleButton:pressed">
+      <Setter Property="Background" Value="#30000000" />
+    </Style>
+
+    <Style Selector="ToggleButton:checked">
+      <Setter Property="Background" Value="#30000000" />
+      <Setter Property="Foreground" Value="#FF6B6B" />
+    </Style>
+
+    <!-- Delete Confirm toggle button -->
+    <Style Selector="ToggleButton.DeleteConfirm">
+      <Setter Property="Foreground" Value="#1A1A1A" />
+    </Style>
+
+    <Style Selector="ToggleButton.DeleteConfirm:checked">
+      <Setter Property="Background" Value="#20FF6B6B" />
+      <Setter Property="Foreground" Value="#FF6B6B" />
+    </Style>
+
+    <!-- PathIcon default size -->
+    <Style Selector="PathIcon">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+    </Style>
+
+    <!-- Checkbox style -->
+    <Style Selector="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <!-- ProgressBar style -->
+    <Style Selector="ProgressBar">
+      <Setter Property="Height" Value="3" />
+      <Setter Property="CornerRadius" Value="1.5" />
+    </Style>
+  </Window.Styles>
+
+</Window>
