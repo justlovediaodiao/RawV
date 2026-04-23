@@ -11,7 +11,7 @@
     MinWidth="960"
     MinHeight="640"
     Background="Transparent"
-    Icon="/Assets/RawVLogo.png"
+    Icon="avares://RawV/Assets/RawVLogo.ico"
     KeyDown="OnWindowKeyDown"
     mc:Ignorable="d"
     Title="RawV">
@@ -36,7 +36,7 @@
         <Grid ColumnDefinitions="Auto,*,Auto">
           <!-- Left: Logo and title -->
           <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <Image Source="/Assets/RawVLogo.png" Width="24" Height="24" />
+            <Image Source="avares://RawV/Assets/RawVLogo.png" Width="24" Height="24" />
             <TextBlock
                 Text="RawV"
                 FontSize="14"
@@ -126,7 +126,7 @@
               HorizontalAlignment="Center"
               VerticalAlignment="Center"
               Spacing="16">
-            <Image Source="/Assets/RawVLogo.png" Width="80" Height="80" Opacity="0.3" />
+            <Image Source="avares://RawV/Assets/RawVLogo.png" Width="80" Height="80" Opacity="0.3" />
             <TextBlock
                 Text="RawV"
                 FontSize="28"
