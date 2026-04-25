@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RawV.Models;
 using RawV.Services;
+using System.Collections.ObjectModel;
 
 namespace RawV.ViewModels;
 
@@ -11,6 +12,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IImageCatalogService _imageCatalogService;
     private readonly IImageLoaderService _imageLoaderService;
     private readonly IFileDeletionService _fileDeletionService;
+    private readonly IThumbnailService _thumbnailService;
 
     [ObservableProperty]
     private Bitmap? currentBitmap;
@@ -33,11 +35,31 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool isBusy;
 
-    public MainWindowViewModel(IImageCatalogService imageCatalogService, IImageLoaderService imageLoaderService, IFileDeletionService fileDeletionService)
+    [ObservableProperty]
+    private bool isDeleting;
+
+    [ObservableProperty]
+    private ObservableCollection<ThumbnailItemViewModel> thumbnails = new();
+
+    [ObservableProperty]
+    private ThumbnailItemViewModel? selectedThumbnail;
+
+    [ObservableProperty]
+    private bool isSidebarVisible = false;
+
+    // Serial loading related
+    private readonly Queue<int> _loadQueue = new();
+    private int _visibleStartIndex = -1;
+    private int _visibleEndIndex = -1;
+    private int _navigationVersion;
+    private bool _isProcessingLoadQueue;
+
+    public MainWindowViewModel(IImageCatalogService imageCatalogService, IImageLoaderService imageLoaderService, IFileDeletionService fileDeletionService, IThumbnailService thumbnailService)
     {
         _imageCatalogService = imageCatalogService;
         _imageLoaderService = imageLoaderService;
         _fileDeletionService = fileDeletionService;
+        _thumbnailService = thumbnailService;
     }
 
     public bool HasImage => CurrentItem is not null && CurrentBitmap is not null;
@@ -46,13 +68,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool IsEmptyState => CurrentSession.Items.Count == 0 && !IsBusy;
 
-    public bool CanClose => CurrentSession.HasItems;
-
     public bool CanGoPrevious => CurrentSession.CurrentIndex > 0;
 
     public bool CanGoNext => CurrentSession.CurrentIndex >= 0 && CurrentSession.CurrentIndex < CurrentSession.Items.Count - 1;
 
-    public bool CanDelete => CurrentItem is not null && !IsBusy;
+    public bool CanDelete => CurrentItem is not null && !IsDeleting;
 
     public ImageEntry? CurrentItem => CurrentSession.CurrentIndex >= 0 && CurrentSession.CurrentIndex < CurrentSession.Items.Count
         ? CurrentSession.Items[CurrentSession.CurrentIndex]
@@ -63,21 +83,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [RelayCommand(CanExecute = nameof(CanGoNext))]
     private Task NextAsync() => NavigateToAsync(CurrentSession.CurrentIndex + 1);
-
-    [RelayCommand(CanExecute = nameof(CanDelete))]
-    private Task RefreshCurrentAsync() => NavigateToAsync(CurrentSession.CurrentIndex);
-
-    [RelayCommand(CanExecute = nameof(CanClose))]
-    private void CloseSession()
-    {
-        CurrentBitmap?.Dispose();
-        CurrentBitmap = null;
-        CurrentSession = new BrowserSession(Array.Empty<ImageEntry>(), -1);
-        CurrentFileName = string.Empty;
-        CurrentStatus = string.Empty;
-        ErrorMessage = string.Empty;
-        NotifyStateChanged();
-    }
 
     public async Task OpenFilesAsync(IEnumerable<string> filePaths)
     {
@@ -91,12 +96,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task<bool> DeleteCurrentAsync()
     {
-        if (CurrentItem is null)
+        if (CurrentItem is null || IsDeleting)
         {
             return false;
         }
 
         var itemToDelete = CurrentItem;
+        IsDeleting = true;
         IsBusy = true;
         ErrorMessage = string.Empty;
 
@@ -106,23 +112,40 @@ public partial class MainWindowViewModel : ViewModelBase
             if (result.CurrentImageDeleted)
             {
                 await RemoveDeletedItemAndNavigateAsync(itemToDelete, null, BuildPartialDeleteWarning(result.ErrorMessage));
+                IsDeleting = false;
+                NotifyStateChanged();
                 return false;
             }
 
             IsBusy = false;
+            IsDeleting = false;
             ErrorMessage = BuildDeleteFailureMessage(result);
             NotifyStateChanged();
             return false;
         }
 
         await RemoveDeletedItemAndNavigateAsync(itemToDelete, result.NextIndex, null);
+        IsDeleting = false;
+        NotifyStateChanged();
         return true;
     }
+
+    public Task NavigatePreviousAsync() => NavigateToAsync(CurrentSession.CurrentIndex - 1);
+
+    public Task NavigateNextAsync() => NavigateToAsync(CurrentSession.CurrentIndex + 1);
 
     private async Task LoadSessionAsync(BrowserSession session)
     {
         CurrentBitmap?.Dispose();
         CurrentBitmap = null;
+        _navigationVersion++;
+        IsBusy = false;
+
+        Thumbnails.Clear();
+        _thumbnailService.ClearCache();
+
+        _loadQueue.Clear();
+
         CurrentSession = session;
         ErrorMessage = string.Empty;
 
@@ -130,11 +153,118 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             CurrentFileName = "No images found";
             CurrentStatus = string.Empty;
+            SelectedThumbnail = null;
             NotifyStateChanged();
             return;
         }
 
+        InitializeThumbnails();
+
+        // Automatically show sidebar after opening photos
+        IsSidebarVisible = true;
+
         await NavigateToAsync(session.CurrentIndex);
+    }
+
+    private void InitializeThumbnails()
+    {
+        var thumbnailList = new List<ThumbnailItemViewModel>();
+        for (int i = 0; i < CurrentSession.Items.Count; i++)
+        {
+            var item = CurrentSession.Items[i];
+            thumbnailList.Add(new ThumbnailItemViewModel
+            {
+                FilePath = item.FilePath,
+                FileName = item.FileName,
+                Index = i,
+                IsSelected = i == CurrentSession.CurrentIndex
+            });
+        }
+
+        foreach (var thumbnail in thumbnailList)
+        {
+            Thumbnails.Add(thumbnail);
+        }
+    }
+
+    /// <summary>
+    /// Updates the realized index range of the virtualization panel.
+    /// </summary>
+    public void UpdateVisibleRange(int startIndex, int endIndex)
+    {
+        _visibleStartIndex = startIndex;
+        _visibleEndIndex = endIndex;
+    }
+
+    /// <summary>
+    /// Triggers loading (called after 200ms debounce)
+    /// </summary>
+    public void TriggerLoad()
+    {
+        if (_visibleStartIndex < 0 || _visibleEndIndex < 0 || Thumbnails.Count == 0)
+        {
+            return;
+        }
+
+        // Calculate extended 50% range loading area
+        var visibleCount = _visibleEndIndex - _visibleStartIndex + 1;
+        var bufferCount = Math.Max(1, (int)(visibleCount * 0.5));
+
+        var loadStart = Math.Max(0, _visibleStartIndex - bufferCount);
+        var loadEnd = Math.Min(Thumbnails.Count - 1, _visibleEndIndex + bufferCount);
+
+        // Add indexes that need loading to the queue (exclude already loaded and loading)
+        for (int i = loadStart; i <= loadEnd; i++)
+        {
+            if (!Thumbnails[i].IsLoaded && !Thumbnails[i].IsLoading && !_loadQueue.Contains(i))
+            {
+                _loadQueue.Enqueue(i);
+            }
+        }
+
+        // Start serial loading
+        _ = ProcessLoadQueueAsync();
+    }
+
+    /// <summary>
+    /// Processes the loading queue serially
+    /// </summary>
+    private async Task ProcessLoadQueueAsync()
+    {
+        if (_isProcessingLoadQueue)
+        {
+            return;
+        }
+
+        _isProcessingLoadQueue = true;
+        try
+        {
+            while (_loadQueue.Count > 0)
+            {
+                var index = _loadQueue.Dequeue();
+
+                // Check if index is still valid
+                if (index < 0 || index >= Thumbnails.Count)
+                {
+                    continue;
+                }
+
+                var thumbnail = Thumbnails[index];
+
+                // Skip already loaded or loading
+                if (thumbnail.IsLoaded || thumbnail.IsLoading)
+                {
+                    continue;
+                }
+
+                // Serially load thumbnail
+                await thumbnail.LoadAsync(_thumbnailService, 120, 90);
+            }
+        }
+        finally
+        {
+            _isProcessingLoadQueue = false;
+        }
     }
 
     private async Task NavigateToAsync(int index)
@@ -147,27 +277,49 @@ public partial class MainWindowViewModel : ViewModelBase
 
         IsBusy = true;
         ErrorMessage = string.Empty;
+        var navigationVersion = ++_navigationVersion;
 
         var item = CurrentSession.Items[index];
         CurrentBitmap?.Dispose();
         CurrentBitmap = null;
 
+        Bitmap? loadedBitmap = null;
         try
         {
-            CurrentBitmap = await _imageLoaderService.LoadAsync(item.FilePath);
+            loadedBitmap = await _imageLoaderService.LoadAsync(item.FilePath);
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            if (navigationVersion == _navigationVersion)
+            {
+                ErrorMessage = ex.Message;
+            }
         }
-        finally
+
+        if (navigationVersion != _navigationVersion)
         {
-            CurrentSession = new BrowserSession(CurrentSession.Items, index);
-            CurrentFileName = item.FileName;
-            CurrentStatus = BuildStatus(item, CurrentBitmap, index, CurrentSession.Items.Count);
-            IsBusy = false;
-            NotifyStateChanged();
+            loadedBitmap?.Dispose();
+            return;
         }
+
+        CurrentBitmap = loadedBitmap;
+        CurrentSession = new BrowserSession(CurrentSession.Items, index);
+        CurrentFileName = item.FileName;
+        CurrentStatus = BuildStatus(item, CurrentBitmap, index, CurrentSession.Items.Count);
+        IsBusy = false;
+
+        UpdateThumbnailSelection();
+        NotifyStateChanged();
+    }
+
+    private void UpdateThumbnailSelection()
+    {
+        foreach (var thumb in Thumbnails)
+        {
+            thumb.IsSelected = thumb.Index == CurrentSession.CurrentIndex;
+        }
+
+        SelectedThumbnail = Thumbnails.FirstOrDefault(t => t.Index == CurrentSession.CurrentIndex);
     }
 
     private async Task RemoveDeletedItemAndNavigateAsync(ImageEntry deletedItem, int? nextIndex, string? warningMessage)
@@ -176,9 +328,30 @@ public partial class MainWindowViewModel : ViewModelBase
             .Where(item => !string.Equals(item.FilePath, deletedItem.FilePath, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
+        _thumbnailService.InvalidateCache(deletedItem.FilePath);
+
+        var thumbnailToRemove = Thumbnails.FirstOrDefault(t => t.FilePath == deletedItem.FilePath);
+        if (thumbnailToRemove is not null)
+        {
+            Thumbnails.Remove(thumbnailToRemove);
+        }
+
+        for (int i = 0; i < Thumbnails.Count; i++)
+        {
+            var thumb = Thumbnails[i];
+            Thumbnails[i] = new ThumbnailItemViewModel
+            {
+                FilePath = thumb.FilePath,
+                FileName = thumb.FileName,
+                Index = i,
+                Thumbnail = thumb.Thumbnail,
+                IsLoaded = thumb.IsLoaded
+            };
+        }
+
         CurrentBitmap?.Dispose();
         CurrentBitmap = null;
-        CurrentSession = new BrowserSession(remainingItems, nextIndex ?? -1);
+        CurrentSession = new BrowserSession(remainingItems, ResolveNextIndexAfterDeletion(deletedItem, nextIndex, remainingItems.Length) ?? -1);
         ErrorMessage = string.Empty;
         IsBusy = false;
 
@@ -193,9 +366,38 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        SelectedThumbnail = null;
         CurrentFileName = "All images deleted";
         CurrentStatus = warningMessage ?? string.Empty;
         NotifyStateChanged();
+    }
+
+    private int? ResolveNextIndexAfterDeletion(ImageEntry deletedItem, int? requestedNextIndex, int remainingCount)
+    {
+        if (remainingCount == 0)
+        {
+            return null;
+        }
+
+        if (requestedNextIndex.HasValue)
+        {
+            return Math.Clamp(requestedNextIndex.Value, 0, remainingCount - 1);
+        }
+
+        var deletedIndex = CurrentSession.Items
+            .Select((item, index) => (item, index))
+            .FirstOrDefault(pair => string.Equals(pair.item.FilePath, deletedItem.FilePath, StringComparison.OrdinalIgnoreCase))
+            .index;
+
+        return Math.Min(deletedIndex, remainingCount - 1);
+    }
+
+    partial void OnSelectedThumbnailChanged(ThumbnailItemViewModel? value)
+    {
+        if (value is not null && value.Index != CurrentSession.CurrentIndex)
+        {
+            _ = NavigateToAsync(value.Index);
+        }
     }
 
     partial void OnCurrentBitmapChanged(Bitmap? value)
@@ -218,6 +420,11 @@ public partial class MainWindowViewModel : ViewModelBase
         NotifyStateChanged();
     }
 
+    partial void OnIsDeletingChanged(bool value)
+    {
+        NotifyStateChanged();
+    }
+
     private void NotifyStateChanged()
     {
         OnPropertyChanged(nameof(CurrentItem));
@@ -227,11 +434,9 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanGoPrevious));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(CanDelete));
-        OnPropertyChanged(nameof(CanClose));
         PreviousCommand.NotifyCanExecuteChanged();
         NextCommand.NotifyCanExecuteChanged();
-        RefreshCurrentCommand.NotifyCanExecuteChanged();
-        CloseSessionCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsSidebarVisible));
     }
 
     private static string BuildStatus(ImageEntry item, Bitmap? bitmap, int index, int totalCount)
@@ -250,24 +455,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static string BuildDeleteFailureMessage(DeleteResult result)
     {
-        return BuildDeleteFailureMessage(result.ErrorMessage, result.DeletedPaths.Count, false);
+        return BuildDeleteFailureMessage(result.ErrorMessage, result.DeletedPaths.Count);
     }
 
     private static string BuildPartialDeleteWarning(string? errorMessage)
     {
-        return BuildDeleteFailureMessage(errorMessage, 1, false);
+        return BuildDeleteFailureMessage(errorMessage, 1);
     }
 
-    private static string BuildDeleteFailureMessage(string? errorMessage, int deletedPathCount, bool sessionBecameEmpty)
+    private static string BuildDeleteFailureMessage(string? errorMessage, int deletedPathCount)
     {
         var prefix = deletedPathCount > 0
             ? "Some files have been moved to the Recycle Bin, but could not complete the full deletion."
             : "Delete failed.";
-
-        if (sessionBecameEmpty && deletedPathCount > 0)
-        {
-            prefix = "The current image has been moved to the Recycle Bin, but some associated files failed to delete.";
-        }
 
         return string.IsNullOrWhiteSpace(errorMessage)
             ? prefix

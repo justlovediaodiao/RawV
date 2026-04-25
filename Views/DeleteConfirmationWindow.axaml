@@ -20,12 +20,12 @@
               Width="40"
               Height="40"
               CornerRadius="20"
-              Background="#30FF6B6B">
+              Background="#300078D4">
             <PathIcon
                 Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"
                 Width="20"
                 Height="20"
-                Foreground="#FF6B6B" />
+                Foreground="#0078D4" />
           </Border>
           <TextBlock
               Text="Confirm Delete"
@@ -35,7 +35,7 @@
               Foreground="#1A1A1A" />
         </StackPanel>
         <TextBlock
-            Text="The current image and its associated RAW file will be moved to the Recycle Bin. This action can be undone."
+            Text="The current image and any associated RAW files will be moved to the Recycle Bin. This action can be undone."
             TextWrapping="Wrap"
             Opacity="0.8"
             Foreground="#1A1A1A"
@@ -65,26 +65,13 @@
   </Panel>
 
   <Window.Styles>
-    <Style Selector="Button">
-      <Setter Property="Background" Value="#20000000" />
-      <Setter Property="Foreground" Value="#1A1A1A" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="Button:pointerover">
-      <Setter Property="Background" Value="#30000000" />
-    </Style>
-
     <Style Selector="Button.Delete">
-      <Setter Property="Background" Value="#FF6B6B" />
+      <Setter Property="Background" Value="#0078D4" />
       <Setter Property="Foreground" Value="White" />
     </Style>
 
     <Style Selector="Button.Delete:pointerover">
-      <Setter Property="Background" Value="#FF8585" />
+      <Setter Property="Background" Value="#106EBE" />
     </Style>
   </Window.Styles>
 

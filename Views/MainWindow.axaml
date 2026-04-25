@@ -6,13 +6,13 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:RawV.ViewModels"
-    Width="1280"
+    xmlns:conv="using:RawV.Converters"
+    Width="1400"
     Height="820"
     MinWidth="960"
     MinHeight="640"
     Background="Transparent"
     Icon="avares://RawV/Assets/RawVLogo.ico"
-    KeyDown="OnWindowKeyDown"
     mc:Ignorable="d"
     Title="RawV">
 
@@ -22,8 +22,86 @@
       <SolidColorBrush Color="#F3F3F3" />
     </Panel.Background>
 
-    <!-- Content Grid -->
-    <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Content Grid with Thumbnail Panel -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="{Binding IsSidebarVisible, Converter={x:Static conv:Converters.SidebarWidthConverter}}" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <!-- Left: Thumbnail List Panel -->
+      <Border
+          Grid.Column="0"
+          Background="#E8E8E8"
+          BorderBrush="#CCCCCC"
+          BorderThickness="0,0,1,0"
+          ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <!-- Header with Toggle Button - Always visible -->
+          <Border Grid.Row="0" Height="36" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Photos" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0" Opacity="0.8" HorizontalAlignment="Left" Grid.Column="0" />
+              <TextBlock Text="{Binding Thumbnails.Count}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" Opacity="0.6" HorizontalAlignment="Right" Grid.Column="1" />
+            </Grid>
+          </Border>
+
+          <!-- Thumbnail List -->
+          <ListBox Grid.Row="1"
+                   x:Name="ThumbnailListBox"
+                   IsVisible="{Binding CurrentSession.HasItems}"
+                   ItemsSource="{Binding Thumbnails}"
+                   SelectedItem="{Binding SelectedThumbnail}"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   Padding="0"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel Orientation="Vertical" />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:ThumbnailItemViewModel">
+                <Border Width="148" Height="132" Margin="4,2" CornerRadius="4"
+                        BorderBrush="#0078D4" BorderThickness="{Binding IsSelected, Converter={x:Static conv:Converters.SelectedBorderThicknessConverter}}">
+                  <Grid RowDefinitions="*,Auto">
+                    <!-- Image area -->
+                    <Panel Grid.Row="0" Margin="4,4,4,0">
+                      <!-- Gray placeholder background - shown when not loaded -->
+                      <Panel Background="#C0C0C0" IsVisible="{Binding !IsLoaded}" />
+
+                      <!-- Actual thumbnail -->
+                      <Image Source="{Binding Thumbnail}" Stretch="Uniform"
+                             IsVisible="{Binding IsLoaded}" />
+                    </Panel>
+
+                    <!-- File name - displayed below the image -->
+                    <TextBlock Grid.Row="1" Text="{Binding FileName}" FontSize="9" Foreground="#666666" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6,4,6,6"
+                               MaxWidth="136" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+              </Style>
+              <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+              </Style>
+              <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+              </Style>
+            </ListBox.Styles>
+          </ListBox>
+
+        </Grid>
+      </Border>
+
+      <!-- Right: Main Content -->
+      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
 
       <!-- Top Command Bar - Compact WinUI style -->
       <Border
@@ -34,8 +112,14 @@
           <SolidColorBrush Color="#FFFFFF" Opacity="0.8" />
         </Border.Background>
         <Grid ColumnDefinitions="Auto,*,Auto">
-          <!-- Left: Logo and title -->
-          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <!-- Left: Menu button and Logo -->
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <ToggleButton
+                Classes="MenuToggle"
+                IsChecked="{Binding IsSidebarVisible, Mode=TwoWay}"
+                ToolTip.Tip="Toggle Sidebar">
+              <PathIcon Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+            </ToggleButton>
             <Image Source="avares://RawV/Assets/RawVLogo.png" Width="24" Height="24" />
             <TextBlock
                 Text="RawV"
@@ -64,14 +148,7 @@
             </Button>
             <Rectangle Width="1" Height="24" Fill="#20000000" Margin="8,0" />
             <Button
-                Command="{Binding CloseSessionCommand}"
-                IsEnabled="{Binding CanClose}"
-                ToolTip.Tip="Close Current Folder"
-                Focusable="False">
-              <PathIcon Data="M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z" />
-            </Button>
-            <Rectangle Width="1" Height="24" Fill="#20000000" Margin="8,0" />
-            <Button
+                x:Name="DeleteButton"
                 Classes="Delete"
                 Click="OnDeleteClick"
                 IsEnabled="{Binding CanDelete}"
@@ -87,10 +164,13 @@
               Orientation="Horizontal"
               Spacing="8"
               VerticalAlignment="Center">
-            <CheckBox
-                IsChecked="{Binding DeleteConfirmationEnabled}"
-                ToolTip.Tip="Delete Confirmation"
-                Focusable="False" />
+            <ToggleButton
+                Classes="MenuToggle ConfirmToggle"
+                IsChecked="{Binding DeleteConfirmationEnabled, Mode=TwoWay}"
+                ToolTip.Tip="Confirm before deleting"
+                Focusable="False">
+              <PathIcon Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z" />
+            </ToggleButton>
           </StackPanel>
         </Grid>
       </Border>
@@ -232,62 +312,13 @@
         </Grid>
       </Border>
 
+      </Grid>
     </Grid>
   </Panel>
 
   <Window.Styles>
-    <!-- Base button style - WinUI compact -->
-    <Style Selector="Button">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="Padding" Value="8,4" />
-      <Setter Property="Height" Value="32" />
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="Button:pointerover">
-      <Setter Property="Background" Value="#20000000" />
-    </Style>
-
-    <Style Selector="Button:pressed">
-      <Setter Property="Background" Value="#30000000" />
-    </Style>
-
-    <Style Selector="Button:disabled">
-      <Setter Property="Opacity" Value="0.3" />
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
-
-    <!-- Accent button -->
-    <Style Selector="Button.Accent">
-      <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
-    </Style>
-
-    <Style Selector="Button.Accent:pointerover">
-      <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
-    </Style>
-
-    <!-- Delete button -->
-    <Style Selector="Button.Delete">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="#FF6B6B" />
-    </Style>
-
-    <Style Selector="Button.Delete:pointerover">
-      <Setter Property="Background" Value="#50FF6B6B" />
-    </Style>
-
-    <Style Selector="Button.Delete:disabled">
-      <Setter Property="Opacity" Value="0.3" />
-    </Style>
-
     <!-- ToggleButton base style -->
-    <Style Selector="ToggleButton">
+    <Style Selector="ToggleButton.MenuToggle">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
       <Setter Property="BorderThickness" Value="0" />
@@ -297,47 +328,56 @@
       <Setter Property="Width" Value="32" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}"
+              BorderThickness="{TemplateBinding BorderThickness}"
+              CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}"
+                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
     </Style>
 
-    <Style Selector="ToggleButton:pointerover">
+    <Style Selector="ToggleButton.MenuToggle:pointerover">
       <Setter Property="Background" Value="#20000000" />
     </Style>
 
-    <Style Selector="ToggleButton:pressed">
+    <Style Selector="ToggleButton.MenuToggle:pressed">
       <Setter Property="Background" Value="#30000000" />
     </Style>
 
-    <Style Selector="ToggleButton:checked">
+    <Style Selector="ToggleButton.MenuToggle:checked">
       <Setter Property="Background" Value="#30000000" />
-      <Setter Property="Foreground" Value="#FF6B6B" />
-    </Style>
-
-    <!-- Delete Confirm toggle button -->
-    <Style Selector="ToggleButton.DeleteConfirm">
-      <Setter Property="Foreground" Value="#1A1A1A" />
-    </Style>
-
-    <Style Selector="ToggleButton.DeleteConfirm:checked">
-      <Setter Property="Background" Value="#20FF6B6B" />
-      <Setter Property="Foreground" Value="#FF6B6B" />
-    </Style>
-
-    <!-- PathIcon default size -->
-    <Style Selector="PathIcon">
-      <Setter Property="Width" Value="16" />
-      <Setter Property="Height" Value="16" />
-    </Style>
-
-    <!-- Checkbox style -->
-    <Style Selector="CheckBox">
       <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
     </Style>
 
-    <!-- ProgressBar style -->
-    <Style Selector="ProgressBar">
-      <Setter Property="Height" Value="3" />
-      <Setter Property="CornerRadius" Value="1.5" />
+    <Style Selector="ToggleButton.MenuToggle:checked:pointerover">
+      <Setter Property="Background" Value="#30000000" />
     </Style>
+
+    <Style Selector="ToggleButton.MenuToggle:checked:pressed">
+      <Setter Property="Background" Value="#40000000" />
+    </Style>
+
+    <Style Selector="ToggleButton.ConfirmToggle:checked">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ToggleButton.ConfirmToggle:checked:pointerover">
+      <Setter Property="Background" Value="#20000000" />
+    </Style>
+
+    <Style Selector="ToggleButton.ConfirmToggle:checked PathIcon">
+      <Setter Property="Foreground" Value="#0078D4" />
+    </Style>
+
   </Window.Styles>
 
 </Window>

@@ -21,7 +21,8 @@ public partial class App : Application
             var imageCatalogService = new ImageCatalogService();
             var imageLoaderService = new ImageLoaderService();
             var fileDeletionService = new FileDeletionService();
-            var mainWindowViewModel = new MainWindowViewModel(imageCatalogService, imageLoaderService, fileDeletionService);
+            var thumbnailService = new ThumbnailService();
+            var mainWindowViewModel = new MainWindowViewModel(imageCatalogService, imageLoaderService, fileDeletionService, thumbnailService);
 
             desktop.MainWindow = new MainWindow
             {
