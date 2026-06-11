@@ -9,3 +9,11 @@ A simple camera photo culling tool. When you export photos from your camera to y
 - **One-click RAW Delete** - Automatically finds and deletes RAW files with the same name when deleting images
 - **Keyboard Navigation** - Use arrow keys to browse quickly, Delete key to remove
 - **Recycle Bin Delete** - All deletion operations move to the system recycle bin and can be undone
+
+## Build
+
+dotnet 10 is needed. Build:
+
+```bash
+dotnet publish
+```
