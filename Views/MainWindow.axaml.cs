@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using RawV.Services;
 using RawV.ViewModels;
 
 namespace RawV.Views;
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private ScrollViewer? _scrollViewer;
     private VirtualizingStackPanel? _thumbnailItemsPanel;
     private DispatcherTimer? _debounceTimer;
+    private FmtpWindow? _fmtpWindow;
 
     public MainWindow()
     {
@@ -181,6 +183,25 @@ public partial class MainWindow : Window
         }
 
         await ViewModel.OpenFolderAsync(folderPath);
+    }
+
+    private void OnFmtpClick(object? sender, RoutedEventArgs e)
+    {
+        if (_fmtpWindow is not null)
+        {
+            _fmtpWindow.Activate();
+            return;
+        }
+
+        var initialDirectory = ViewModel.CurrentItem is { } item
+            ? Path.GetDirectoryName(item.FilePath)
+            : null;
+        _fmtpWindow = new FmtpWindow
+        {
+            DataContext = new FmtpWindowViewModel(new FmtpService(), initialDirectory)
+        };
+        _fmtpWindow.Closed += (_, _) => _fmtpWindow = null;
+        _fmtpWindow.Show(this);
     }
 
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)

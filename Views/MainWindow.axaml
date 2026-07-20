@@ -171,6 +171,15 @@
                 Focusable="False">
               <PathIcon Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z" />
             </ToggleButton>
+            <Button
+                Click="OnFmtpClick"
+                ToolTip.Tip="Sync with MTP device"
+                Width="32"
+                Height="32"
+                Padding="8,4"
+                Focusable="False">
+              <PathIcon Data="M12,4V1L8,5L12,9V6C15.31,6 18,8.69 18,12C18,13.01 17.75,13.95 17.31,14.78L18.77,16.24C19.54,15 20,13.55 20,12C20,7.58 16.42,4 12,4M6.69,9.22L5.23,7.76C4.46,9 4,10.45 4,12C4,16.42 7.58,20 12,20V23L16,19L12,15V18C8.69,18 6,15.31 6,12C6,10.99 6.25,10.05 6.69,9.22Z" />
+            </Button>
           </StackPanel>
         </Grid>
       </Border>
