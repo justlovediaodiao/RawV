@@ -9,12 +9,19 @@ A simple camera photo culling tool. When you export photos from your camera to y
 - **One-click RAW Delete** - Automatically finds and deletes RAW files with the same name when deleting images
 - **Keyboard Navigation** - Use arrow keys to browse quickly, Delete key to remove
 - **Recycle Bin Delete** - All deletion operations move to the system recycle bin and can be undone
-- **MTP Sync Window** - Run `fmtp` with live copy/move progress, activity logs, and cancellation
+- **MTP Sync** - Sync photos from MTP device, Windows only
 
 ## Build
 
-dotnet 10 is needed. Build:
+.NET 10 is required.
+Build RawV with:
 
 ```bash
 dotnet publish
 ```
+
+### MTP sync support (Windows only)
+
+MTP sync depends on the external Windows-only
+[`fmtp`](https://github.com/justlovediaodiao/tools/tree/master/fmtp) CLI.
+To include this feature, build `fmtp` on Windows and copy to RawV publish directory.

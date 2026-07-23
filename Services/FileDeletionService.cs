@@ -5,7 +5,7 @@ using RawV.Models;
 
 namespace RawV.Services;
 
-public sealed class FileDeletionService : IFileDeletionService
+public sealed class FileDeletionService
 {
     public async Task<DeleteResult> DeleteToRecycleBinAsync(ImageEntry currentImage, IReadOnlyList<ImageEntry> allImages, CancellationToken cancellationToken = default)
     {

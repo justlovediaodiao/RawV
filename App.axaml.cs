@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using RawV.Services;
 using RawV.ViewModels;
 using RawV.Views;
 
@@ -18,15 +17,9 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var imageCatalogService = new ImageCatalogService();
-            var imageLoaderService = new ImageLoaderService();
-            var fileDeletionService = new FileDeletionService();
-            var thumbnailService = new ThumbnailService();
-            var mainWindowViewModel = new MainWindowViewModel(imageCatalogService, imageLoaderService, fileDeletionService, thumbnailService);
-
             desktop.MainWindow = new MainWindow
             {
-                DataContext = mainWindowViewModel
+                DataContext = new MainWindowViewModel()
             };
         }
 

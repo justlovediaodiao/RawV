@@ -3,7 +3,7 @@ using RawV.Models;
 
 namespace RawV.Services;
 
-public sealed class ImageCatalogService : IImageCatalogService
+public sealed class ImageCatalogService
 {
     private static readonly HashSet<string> SupportedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {

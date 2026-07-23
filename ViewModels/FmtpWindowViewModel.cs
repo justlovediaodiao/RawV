@@ -9,7 +9,7 @@ namespace RawV.ViewModels;
 
 public partial class FmtpWindowViewModel : ViewModelBase
 {
-    private readonly IFmtpService _fmtpService;
+    private readonly FmtpService _fmtpService = new();
     private CancellationTokenSource? _cancellationTokenSource;
 
     [ObservableProperty]
@@ -45,9 +45,8 @@ public partial class FmtpWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string copyFile = string.Empty;
 
-    public FmtpWindowViewModel(IFmtpService fmtpService, string? initialLocalDirectory = null)
+    public FmtpWindowViewModel(string? initialLocalDirectory = null)
     {
-        _fmtpService = fmtpService;
         LocalDirectory = initialLocalDirectory ?? string.Empty;
     }
 

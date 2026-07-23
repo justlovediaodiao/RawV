@@ -2,13 +2,9 @@ using Avalonia.Media.Imaging;
 
 namespace RawV.Services;
 
-public sealed class ThumbnailService : IThumbnailService, IDisposable
+public sealed class ThumbnailService : IDisposable
 {
     private readonly Dictionary<string, Bitmap> _cache = new(StringComparer.OrdinalIgnoreCase);
-
-    public ThumbnailService()
-    {
-    }
 
     public async Task<Bitmap?> GetThumbnailAsync(string filePath, int width, int height, CancellationToken cancellationToken = default)
     {
@@ -104,8 +100,5 @@ public sealed class ThumbnailService : IThumbnailService, IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        ClearCache();
-    }
+    public void Dispose() => ClearCache();
 }

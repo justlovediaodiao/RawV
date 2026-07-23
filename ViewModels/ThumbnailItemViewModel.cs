@@ -26,7 +26,7 @@ public partial class ThumbnailItemViewModel : ObservableObject
 
     public int Index { get; set; }
 
-    public async Task LoadAsync(IThumbnailService thumbnailService, int width, int height, CancellationToken cancellationToken = default)
+    public async Task LoadAsync(ThumbnailService thumbnailService, int width, int height, CancellationToken cancellationToken = default)
     {
         if (IsLoaded || IsLoading)
         {

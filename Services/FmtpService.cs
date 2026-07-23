@@ -5,8 +5,14 @@ using System.Text.Json;
 
 namespace RawV.Services;
 
-public sealed class FmtpService : IFmtpService
+public sealed class FmtpService
 {
+    public static string ExecutablePath => Path.Combine(AppContext.BaseDirectory, "fmtp.exe");
+
+    public static bool IsExecutableAvailable =>
+        OperatingSystem.IsWindows()
+        && File.Exists(ExecutablePath);
+
     public async Task<int> RunAsync(
         string localDirectory,
         string mtpPath,
@@ -15,7 +21,7 @@ public sealed class FmtpService : IFmtpService
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = Path.Combine(AppContext.BaseDirectory, "fmtp.exe"),
+            FileName = ExecutablePath,
             WorkingDirectory = localDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,

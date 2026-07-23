@@ -198,7 +198,7 @@ public partial class MainWindow : Window
             : null;
         _fmtpWindow = new FmtpWindow
         {
-            DataContext = new FmtpWindowViewModel(new FmtpService(), initialDirectory)
+            DataContext = new FmtpWindowViewModel(initialDirectory)
         };
         _fmtpWindow.Closed += (_, _) => _fmtpWindow = null;
         _fmtpWindow.Show(this);

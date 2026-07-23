@@ -9,10 +9,10 @@ namespace RawV.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly IImageCatalogService _imageCatalogService;
-    private readonly IImageLoaderService _imageLoaderService;
-    private readonly IFileDeletionService _fileDeletionService;
-    private readonly IThumbnailService _thumbnailService;
+    private readonly ImageCatalogService _imageCatalogService = new();
+    private readonly ImageLoaderService _imageLoaderService = new();
+    private readonly FileDeletionService _fileDeletionService = new();
+    private readonly ThumbnailService _thumbnailService = new();
 
     [ObservableProperty]
     private Bitmap? currentBitmap;
@@ -53,14 +53,6 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _visibleEndIndex = -1;
     private int _navigationVersion;
     private bool _isProcessingLoadQueue;
-
-    public MainWindowViewModel(IImageCatalogService imageCatalogService, IImageLoaderService imageLoaderService, IFileDeletionService fileDeletionService, IThumbnailService thumbnailService)
-    {
-        _imageCatalogService = imageCatalogService;
-        _imageLoaderService = imageLoaderService;
-        _fileDeletionService = fileDeletionService;
-        _thumbnailService = thumbnailService;
-    }
 
     public bool HasImage => CurrentItem is not null && CurrentBitmap is not null;
 

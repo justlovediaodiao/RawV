@@ -7,6 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:RawV.ViewModels"
     xmlns:conv="using:RawV.Converters"
+    xmlns:services="using:RawV.Services"
     Width="1400"
     Height="820"
     MinWidth="960"
@@ -173,6 +174,7 @@
             </ToggleButton>
             <Button
                 Click="OnFmtpClick"
+                IsVisible="{x:Static services:FmtpService.IsExecutableAvailable}"
                 ToolTip.Tip="Sync with MTP device"
                 Width="32"
                 Height="32"
